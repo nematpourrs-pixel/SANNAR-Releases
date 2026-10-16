@@ -1,0 +1,31 @@
+name: Publish SANNAR v4.6.0 Unsigned Build
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/publish-v460.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve and verify unsigned package
+        shell: bash
+        run: |
+          test -s SANNAR_V460_DOWNLOAD_URL.b64
+          base64 -d SANNAR_V460_DOWNLOAD_URL.b64 > /tmp/url.txt
+          curl -L --fail --retry 2 --retry-delay 3 --url "$(cat /tmp/url.txt)" -o SANNAR_v4.6.0_CAFEBAZAAR_UPDATE_SMS_LOCAL_FIRST_UNSIGNED.zip
+          test -s SANNAR_v4.6.0_CAFEBAZAAR_UPDATE_SMS_LOCAL_FIRST_UNSIGNED.zip
+          unzip -t SANNAR_v4.6.0_CAFEBAZAAR_UPDATE_SMS_LOCAL_FIRST_UNSIGNED.zip
+          sha256sum SANNAR_v4.6.0_CAFEBAZAAR_UPDATE_SMS_LOCAL_FIRST_UNSIGNED.zip
+          rm -f /tmp/url.txt
+      - name: Publish public unsigned build release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=sannar-v4.6.0-unsigned
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "SANNAR v4.6.0 unsigned build" --notes "Unsigned APK/AAB handoff for final signing and verification." --prerelease
+          gh release upload "$TAG" SANNAR_v4.6.0_CAFEBAZAAR_UPDATE_SMS_LOCAL_FIRST_UNSIGNED.zip --clobber
