@@ -29,3 +29,10 @@ jobs:
           TAG=sannar-v4.6.0-unsigned
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "SANNAR v4.6.0 unsigned build" --notes "Unsigned APK/AAB handoff for final signing and verification." --prerelease
           gh release upload "$TAG" SANNAR_v4.6.0_CAFEBAZAAR_UPDATE_SMS_LOCAL_FIRST_UNSIGNED.zip --clobber
+
+      - name: Attach SANNAR v4.6.0 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SANNAR-v4.6.0-Unsigned-Transfer
+          path: SANNAR_v4.6.0_CAFEBAZAAR_UPDATE_SMS_LOCAL_FIRST_UNSIGNED.zip
+          retention-days: 2
