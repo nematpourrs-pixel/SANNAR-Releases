@@ -1,0 +1,42 @@
+name: Publish SANNAR v4.9.1 signed binaries
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v491-signed.yml'
+      - 'SANNAR_V491_PUBLIC_DOWNLOADS.txt'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and retrieve signed binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s SANNAR_V491_PUBLIC_DOWNLOADS.txt
+          while IFS='|' read -r file b64url; do
+            case "$file" in
+              SANNAR_v4.9.1_CAFEBAZAAR_SIGNED.apk|SANNAR_v4.9.1_CAFEBAZAAR_SIGNED.aab|SANNAR_v4.9.1_CAFEBAZAAR_FINAL_SIGNED.zip) ;;
+              *) echo "Unexpected file: $file"; exit 1 ;;
+            esac
+            url="$(printf %s "$b64url" | base64 -d)"
+            curl -fL --retry 3 --retry-delay 2 --max-time 600 "$url" -o "$file"
+            test -s "$file"
+          done < SANNAR_V491_PUBLIC_DOWNLOADS.txt
+          echo 'c0ca62b2c251c7a970b1f6d046cca214d3a3029730fb8d062b4b6b1fbd6b4508  SANNAR_v4.9.1_CAFEBAZAAR_SIGNED.apk' | sha256sum -c -
+          echo '6b8163f25077c6dd187da5229a8586361937db47f5ce9672d576a7c2dc3b92b5  SANNAR_v4.9.1_CAFEBAZAAR_SIGNED.aab' | sha256sum -c -
+          echo 'a7021f12901885ed93adbbc2058d4c9b47d352f1e819d54c72d3953abf7d0e08  SANNAR_v4.9.1_CAFEBAZAAR_FINAL_SIGNED.zip' | sha256sum -c -
+          unzip -t SANNAR_v4.9.1_CAFEBAZAAR_FINAL_SIGNED.zip > /dev/null
+      - name: Publish signed version 4.9.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=sannar-v4.9.1-cafebazaar-signed
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title 'SANNAR 4.9.1 (signed)' --notes 'Original signed APK, AAB and ZIP transferred from authenticated project release; SHA-256 checked against upstream.' --latest
+          gh release upload "$TAG" SANNAR_v4.9.1_CAFEBAZAAR_SIGNED.apk SANNAR_v4.9.1_CAFEBAZAAR_SIGNED.aab SANNAR_v4.9.1_CAFEBAZAAR_FINAL_SIGNED.zip --clobber
