@@ -1,0 +1,40 @@
+name: SANNAR 4.9.3 Official APK signing tools export
+on:
+  push:
+    branches: [build/sannar-v493-public]
+    paths: ['.github/workflows/export-sannar-v493-android-build-tools.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v4
+      - name: Install Android Build Tools 36.0.0
+        shell: bash
+        run: |
+          yes | sdkmanager 'build-tools;36.0.0' || true
+          ROOT="$ANDROID_HOME/build-tools/36.0.0"
+          test -x "$ROOT/apksigner"
+          test -x "$ROOT/zipalign"
+          test -s "$ROOT/lib/apksigner.jar"
+          test -x "$ROOT/aapt2"
+      - name: Pack official Android build tools for local signing
+        shell: bash
+        run: |
+          mkdir -p sign-tools
+          cp -a "$ANDROID_HOME/build-tools/36.0.0" sign-tools/36.0.0
+          (cd sign-tools && zip -qr ../SANNAR_SIGNING_BUILD_TOOLS_36.zip 36.0.0)
+          sha256sum SANNAR_SIGNING_BUILD_TOOLS_36.zip > SIGNING_TOOLS_SHA256.txt
+          ls -lh SANNAR_SIGNING_BUILD_TOOLS_36.zip
+      - name: Provide one-day signing tool artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SANNAR-v493-Android-Build-Tools-36
+          path: |
+            SANNAR_SIGNING_BUILD_TOOLS_36.zip
+            SIGNING_TOOLS_SHA256.txt
+          retention-days: 1
