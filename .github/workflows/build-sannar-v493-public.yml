@@ -1,0 +1,24 @@
+name: SANNAR 4.9.3 Public Build Check
+on:
+  push:
+    branches:
+      - build/sannar-v493-public
+    paths:
+      - '.github/workflows/build-sannar-v493-public.yml'
+      - 'android-source/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate public Android build environment
+        run: |
+          echo "SANNAR 4.9.3 - public release repo runner check"
+          java -version
+          python3 --version
+          node --version
+          echo "RUNNER_READY"
