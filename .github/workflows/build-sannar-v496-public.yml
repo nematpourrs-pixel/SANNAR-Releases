@@ -26,6 +26,27 @@ jobs:
             exit 1
           fi
 
+      - name: Require original production signing secrets before building
+        shell: bash
+        env:
+          HAS_KEYSTORE: ${{ secrets.SANNAR_KEYSTORE_B64 != '' }}
+          HAS_STORE_PASS: ${{ secrets.SANNAR_STORE_PASS != '' }}
+          HAS_KEY_PASS: ${{ secrets.SANNAR_KEY_PASS != '' }}
+          HAS_KEY_ALIAS: ${{ secrets.SANNAR_KEY_ALIAS != '' }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in HAS_KEYSTORE HAS_STORE_PASS HAS_KEY_PASS HAS_KEY_ALIAS; do
+            if [[ "${!key:-false}" != "true" ]]; then
+              echo "::error::Missing production signing setting: $key. Add SANNAR_* Actions secrets before build."
+              missing=1
+            fi
+          done
+          if [[ "$missing" != "0" ]]; then
+            echo "::error::Release build blocked: original signing key and credentials are required. Unsigned Android output is NOT publishable."
+            exit 1
+          fi
+
       - name: Checkout private SANNAR Android source without exposing it publicly
         uses: actions/checkout@v4
         with:
