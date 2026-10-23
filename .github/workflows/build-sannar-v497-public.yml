@@ -312,6 +312,7 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
+          emulator-boot-timeout: 900
           script: |
             set -e
             adb install -r "$RUNNER_TEMP/sannar-qa.apk"
@@ -319,10 +320,7 @@ jobs:
             adb shell am start -n ir.picamo.kharjino/.MainActivity
             sleep 12
             adb shell pidof ir.picamo.kharjino
-            if adb logcat -d -b crash | grep -E "FATAL EXCEPTION|Fatal signal"; then
-              echo "::error::SANNAR Android startup crash"
-              exit 1
-            fi
+            ! adb logcat -d -b crash | grep -E "FATAL EXCEPTION|Fatal signal"
 
       - name: Verify signed APK starts on Android emulator
         if: ${{ steps.sign.outputs.signed == 'true' }}
@@ -331,6 +329,7 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
+          emulator-boot-timeout: 900
           script: |
             set -e
             adb install -r SANNAR_v4.9.7_CAFEBAZAAR_SIGNED.apk
@@ -338,10 +337,7 @@ jobs:
             adb shell am start -n ir.picamo.kharjino/.MainActivity
             sleep 15
             adb shell pidof ir.picamo.kharjino
-            if adb logcat -d -b crash | grep -E "FATAL EXCEPTION|Fatal signal"; then
-              echo "Application crashed on startup"
-              exit 1
-            fi
+            ! adb logcat -d -b crash | grep -E "FATAL EXCEPTION|Fatal signal"
 
       - name: Publish signed CafeBazaar release
         if: ${{ steps.sign.outputs.signed == 'true' }}
