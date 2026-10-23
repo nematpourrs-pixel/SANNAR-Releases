@@ -95,7 +95,7 @@ jobs:
           node - <<'JS'
           const fs=require('fs');
           const parser=require('@babel/parser');
-          for(const f of ['App.js','src/screens.js','src/Sannar492Screens.js','src/Sannar493MonthlyScreens.js','src/Sannar494TransactionEditor.js','src/Sannar494Icons.js','src/Sannar496Calendar.js','src/Sannar496Commitments.js','src/Sannar496Instruments.js','src/sannarJalali.js']){
+          for(const f of ['App.js','src/screens.js','src/Sannar492Screens.js','src/Sannar493MonthlyScreens.js','src/Sannar494TransactionEditor.js','src/Sannar494Icons.js','src/Sannar495Calendar.js','src/Sannar495Commitments.js','src/Sannar495Instruments.js','src/sannarJalali.js']){
             parser.parse(fs.readFileSync(f,'utf8'),{sourceType:'module',plugins:['jsx']});
             console.log('JSX OK:',f);
           }
