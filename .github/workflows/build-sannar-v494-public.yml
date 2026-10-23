@@ -1,0 +1,286 @@
+name: SANNAR 4.9.4 CafeBazaar Build via PUBLIC runner
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ build/sannar-v494-public ]
+    paths:
+      - '.github/workflows/build-sannar-v494-public.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+
+    steps:
+      - name: Check private Android source authorization
+        env:
+          PRIVATE_READ_TOKEN: ${{ secrets.SANNAR_PRIVATE_READ_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${PRIVATE_READ_TOKEN:-}" ]]; then
+            echo "::error::Add a fine-grained READ-ONLY GitHub PAT as SANNAR_PRIVATE_READ_TOKEN in PUBLIC repository Actions secrets."
+            exit 1
+          fi
+
+      - name: Checkout private SANNAR Android source without exposing it publicly
+        uses: actions/checkout@v4
+        with:
+          repository: nematpourrs-pixel/kharjino-apk
+          ref: sannar-v494-transaction-edit-icons
+          token: ${{ secrets.SANNAR_PRIVATE_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Apply SANNAR v4.9.4 update patch
+        working-directory: react-native
+        run: |
+          python3 -m py_compile patch_v494.py
+          python3 patch_v494.py
+          grep '"versionCode": 494' app.json
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Install Android 16 SDK
+        run: yes | sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" || true
+
+      - name: Generate exact user-provided SANNAR logo and validate safe-area icons
+        working-directory: react-native
+        run: |
+          if ! command -v convert >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y imagemagick
+          fi
+          python3 generate_v482_icon.py
+          file assets/sannar-v482-launcher.png assets/sannar-v482-adaptive.png
+
+      - name: Test bracketed transaction calculator
+        working-directory: react-native
+        run: node tests/amount-expression.test.cjs
+
+      - name: Install JavaScript dependencies
+        working-directory: react-native
+        run: |
+          npm install --legacy-peer-deps
+          npx expo install --check || true
+
+      - name: Test v4.9.4 Jalali calendar conversion
+        working-directory: react-native
+        run: |
+          node --experimental-default-type=module --input-type=module -e "
+            import {formatJalali,jalaliInputToGregorian} from './src/sannarJalali.js';
+            if(formatJalali('2026-10-21 16:00:00')!=='1405/07/29') throw Error('date display mismatch');
+            if(jalaliInputToGregorian('۱۴۰۵/۰۷/۲۹')!=='2026-10-21') throw Error('date input mismatch');
+          "
+
+      - name: Audit React Native JSX and navigation syntax
+        working-directory: react-native
+        run: |
+          node - <<'JS'
+          const fs=require('fs');
+          const parser=require('@babel/parser');
+          for(const f of ['App.js','src/screens.js','src/Sannar492Screens.js','src/Sannar493MonthlyScreens.js','src/Sannar494TransactionEditor.js','src/Sannar494Icons.js','src/sannarJalali.js']){
+            parser.parse(fs.readFileSync(f,'utf8'),{sourceType:'module',plugins:['jsx']});
+            console.log('JSX OK:',f);
+          }
+          JS
+
+      - name: Generate native Android project
+        working-directory: react-native
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform android --clean
+
+      - name: Apply opt-in RECEIVE_SMS-only financial proposal engine
+        working-directory: react-native
+        run: python3 apply_native_v493.py
+
+      - name: Apply production and Play Protect hardening
+        working-directory: react-native
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Prefer NDK 28 native toolchain with 16 KiB linker defaults.
+          base = Path('android/build.gradle')
+          gradle = base.read_text()
+          import re
+          gradle = re.sub(r'ndkVersion\\s*=\\s*["\\\'][^"\\\']+["\\\']', 'ndkVersion = "28.2.13676358"', gradle)
+          base.write_text(gradle)
+
+          p = Path('android/app/build.gradle')
+          s = p.read_text()
+          s = s.replace('signingConfig signingConfigs.debug', '')
+          p.write_text(s)
+
+          gp = Path('android/gradle.properties')
+          g = gp.read_text()
+          for key in ['android.compileSdkVersion','android.targetSdkVersion','android.buildToolsVersion','android.suppressUnsupportedCompileSdk']:
+              lines = [ln for ln in g.splitlines() if not ln.startswith(key + '=')]
+              g = '\n'.join(lines) + '\n'
+          g += 'android.compileSdkVersion=36\n'
+          g += 'android.targetSdkVersion=36\n'
+          g += 'android.buildToolsVersion=36.0.0\n'
+          g += 'android.suppressUnsupportedCompileSdk=36\n'
+          gp.write_text(g)
+
+          mf = Path('android/app/src/main/AndroidManifest.xml')
+          m = mf.read_text()
+          marker = '<application'
+          i = m.find(marker)
+          if i < 0:
+              raise SystemExit('application element not found')
+          end = m.find('>', i)
+          head = m[i:end]
+          attrs = {
+              'android:usesCleartextTraffic': 'false',
+              'android:networkSecurityConfig': '@xml/network_security_config',
+              'android:allowBackup': 'false',
+          }
+          for k, v in attrs.items():
+              if k not in head:
+                  head += f' {k}="{v}"'
+          m = m[:i] + head + m[end:]
+          mf.write_text(m)
+          PY
+
+          mkdir -p android/app/src/main/res/xml
+          cat > android/app/src/main/res/xml/network_security_config.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+            <base-config cleartextTrafficPermitted="false" />
+          </network-security-config>
+          EOF
+
+          echo '--- release identity / SDK ---'
+          grep -n "versionCode\|versionName\|applicationId\|targetSdkVersion\|compileSdkVersion" android/app/build.gradle android/build.gradle android/gradle.properties || true
+          echo '--- source manifest security ---'
+          grep -n "usesCleartextTraffic\|debuggable\|allowBackup\|networkSecurityConfig\|uses-permission" android/app/src/main/AndroidManifest.xml || true
+          echo '--- launcher resources ---'
+          find android/app/src/main/res -maxdepth 2 -type f \( -name 'ic_launcher*' -o -name 'ic_foreground*' \) -print | sort || true
+
+      - name: Build release APK and AAB
+        working-directory: react-native/android
+        run: ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
+
+      - name: Audit 16 KiB ELF page alignment
+        run: |
+          APK="$(find react-native/android/app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -s "$APK"
+          python3 react-native/verify_v480_elf_alignment.py "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 "$APK"
+
+      - name: Audit merged release APK
+        run: |
+          APK="$(find react-native/android/app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          AAPT2="$ANDROID_HOME/build-tools/36.0.0/aapt2"
+          test -n "$APK"
+
+          echo '--- identity ---'
+          "$AAPT2" dump badging "$APK" | grep -E "^package:|^sdkVersion:|^targetSdkVersion:|application-label"
+          "$AAPT2" dump badging "$APK" | grep "package: name='ir.picamo.kharjino' versionCode='494' versionName='4.9.4'"
+          "$AAPT2" dump badging "$APK" | grep "targetSdkVersion:'36'"
+          "$AAPT2" dump badging "$APK" | grep "application-label:'صنار'"
+
+          echo '--- permissions ---'
+          "$AAPT2" dump permissions "$APK" | tee /tmp/sannar-permissions.txt
+          grep "android.permission.POST_NOTIFICATIONS" /tmp/sannar-permissions.txt
+          grep "android.permission.RECEIVE_SMS" /tmp/sannar-permissions.txt
+          ! grep -E "android.permission.(READ_SMS|SEND_SMS|RECEIVE_MMS|RECEIVE_WAP_PUSH|READ_CALL_LOG|READ_CONTACTS|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|REQUEST_INSTALL_PACKAGES|QUERY_ALL_PACKAGES|SYSTEM_ALERT_WINDOW)" /tmp/sannar-permissions.txt
+          ! grep -E "android.permission.(SEND_SMS|RECORD_AUDIO|CAMERA|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION|READ_CONTACTS|WRITE_CONTACTS|READ_CALL_LOG|WRITE_CALL_LOG|READ_PHONE_STATE|READ_PHONE_NUMBERS|SYSTEM_ALERT_WINDOW|REQUEST_INSTALL_PACKAGES|QUERY_ALL_PACKAGES|MANAGE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|READ_MEDIA_IMAGES|READ_MEDIA_VIDEO|READ_MEDIA_AUDIO|READ_MEDIA_VISUAL_USER_SELECTED|PACKAGE_USAGE_STATS|USE_BIOMETRIC|USE_FINGERPRINT)" /tmp/sannar-permissions.txt
+
+          echo '--- merged manifest security flags ---'
+          "$AAPT2" dump xmltree "$APK" --file AndroidManifest.xml | tee /tmp/sannar-manifest.txt
+          grep "targetSdkVersion.*=36" /tmp/sannar-manifest.txt
+          grep "usesCleartextTraffic.*=false" /tmp/sannar-manifest.txt
+          grep "allowBackup.*=false" /tmp/sannar-manifest.txt
+          grep "networkSecurityConfig" /tmp/sannar-manifest.txt
+          grep "SannarBankSmsReceiver" /tmp/sannar-manifest.txt
+          ! grep "debuggable.*=true" /tmp/sannar-manifest.txt
+
+      - name: Prepare release artifacts
+        run: |
+          APK="$(find react-native/android/app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          AAB="$(find react-native/android/app/build/outputs/bundle/release -type f -name '*.aab' | head -n 1)"
+          test -n "$APK"
+          test -n "$AAB"
+          cp "$APK" SANNAR_v4.9.4_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.apk
+          cp "$AAB" SANNAR_v4.9.4_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.aab
+          cp react-native/assets/sannar-v482-launcher.png SANNAR_v4.9.4_ICON.png
+          ls -lh SANNAR_v4.9.4_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.apk SANNAR_v4.9.4_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.aab SANNAR_v4.9.4_ICON.png
+
+      - name: Sign with existing production key when secrets are available
+        id: sign
+        env:
+          SANNAR_KEYSTORE_B64: ${{ secrets.SANNAR_KEYSTORE_B64 }}
+          SANNAR_STORE_PASS: ${{ secrets.SANNAR_STORE_PASS }}
+          SANNAR_KEY_PASS: ${{ secrets.SANNAR_KEY_PASS }}
+          SANNAR_KEY_ALIAS: ${{ secrets.SANNAR_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SANNAR_KEYSTORE_B64:-}" || -z "${SANNAR_STORE_PASS:-}" || -z "${SANNAR_KEY_PASS:-}" || -z "${SANNAR_KEY_ALIAS:-}" ]]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Missing signing secrets; unsigned QA only, no public release."
+            exit 0
+          fi
+          echo "$SANNAR_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/sannar-production.jks"
+          chmod 600 "$RUNNER_TEMP/sannar-production.jks"
+          APK="SANNAR_v4.9.4_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.apk"
+          AAB="SANNAR_v4.9.4_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.aab"
+          ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$ZIPALIGN" -f -P 16 4 "$APK" "$RUNNER_TEMP/aligned.apk"
+          "$APKSIGNER" sign --ks "$RUNNER_TEMP/sannar-production.jks" --ks-key-alias "$SANNAR_KEY_ALIAS" --ks-pass env:SANNAR_STORE_PASS --key-pass env:SANNAR_KEY_PASS --out SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.apk "$RUNNER_TEMP/aligned.apk"
+          "$APKSIGNER" verify --verbose --print-certs SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.apk > "$RUNNER_TEMP/apk-signature.txt"
+          CERT="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/apk-signature.txt" | head -n 1 | tr 'A-F' 'a-f')"
+          EXPECTED="f29680f6e6b337252f963a25a7ad3f9178aa75bda39486a846a5404a2b59b3c5"
+          if [[ "$CERT" != "$EXPECTED" ]]; then
+            echo "::error::Signing certificate differs from current SANNAR 4.6.0. Refusing publish."
+            exit 1
+          fi
+          cp "$AAB" "$RUNNER_TEMP/sannar-unsigned.aab"
+          jarsigner -keystore "$RUNNER_TEMP/sannar-production.jks" -storepass:env SANNAR_STORE_PASS -keypass:env SANNAR_KEY_PASS -signedjar SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.aab "$RUNNER_TEMP/sannar-unsigned.aab" "$SANNAR_KEY_ALIAS"
+          jarsigner -verify SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.aab
+          "$ZIPALIGN" -c -P 16 4 SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.apk
+          sha256sum SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.apk SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.aab
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          rm -f "$RUNNER_TEMP/sannar-production.jks" "$RUNNER_TEMP/aligned.apk"
+
+      - name: Publish signed CafeBazaar release
+        if: ${{ steps.sign.outputs.signed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="sannar-v4.9.4-cafebazaar-signed"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "SANNAR 4.9.4 signed CafeBazaar candidate" --notes "Signature, identity, 16 KiB alignment and permissions audited. FINAL Play Protect/device/CafeBazaar approval not yet certified." --prerelease
+          gh release upload "$TAG" SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.apk SANNAR_v4.9.4_CAFEBAZAAR_SIGNED.aab --clobber
+
+      - name: Save unsigned artifacts for QA (short retention; NOT a publishable release)
+        if: ${{ steps.sign.outputs.signed != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: SANNAR-4.9.4-UNSIGNED-REVIEW-ONLY
+          path: |
+            SANNAR_v4.9.4_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.apk
+            SANNAR_v4.9.4_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.aab
+          retention-days: 1
+
+
+# v494 patch-check pass 2: pick up the latest private source branch
