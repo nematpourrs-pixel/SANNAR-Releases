@@ -293,3 +293,5 @@ jobs:
 
 # Final v4.9.5 includes overdue and due-soon navigation across all instruments
 # Rebuild after dashboard overview props and placement fixes
+
+# Rebuild with balance-card dashboard integration and corrected HomeScreen props
