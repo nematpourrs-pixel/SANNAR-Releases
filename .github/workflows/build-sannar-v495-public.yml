@@ -290,3 +290,5 @@ jobs:
 # Rebuild after v4.9.5 dashboard integration fix
 
 # fix repeated home props; restart public CI
+
+# Final v4.9.5 includes overdue and due-soon navigation across all instruments
