@@ -47,11 +47,11 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           screen=Path('src/screens.js').read_text()
           header=screen[screen.index('export function HomeScreen('):].split(') {',1)[0]
+          names=[x.split('=')[0].strip() for x in header.split('{',1)[1].split('}',1)[0].split(',')]
           for param in ['token','ledgerId','onInstruments']:
-              assert len(re.findall(r'\\b'+param+r'\\b',header))==1, param+' must be defined exactly once'
+              assert names.count(param)==1, param+' must be defined exactly once'
           assert 'token={token} ledgerId={ledgerId}' in screen
           print('HomeScreen binding smoke test passed before SDK installation')
           PY
@@ -124,11 +124,11 @@ jobs:
           from pathlib import Path
           screen=Path("src/screens.js").read_text()
           app=Path("App.js").read_text()
-          import re
           head = screen[screen.index("export function HomeScreen("):].split(") {",1)[0]
           assert "export function HomeScreen({ onInstruments, token," in head, "HomeScreen missing token parameter"
+          names = [x.split('=')[0].strip() for x in head.split('{',1)[1].split('}',1)[0].split(',')]
           for param in ("onInstruments","token","ledgerId"):
-            assert len(re.findall(r"\\b"+param+r"\\b",head))==1, f"HomeScreen {param} must appear exactly once"
+            assert names.count(param)==1, f"HomeScreen {param} must appear exactly once"
           assert "token={token} ledgerId={ledgerId}" in screen, "Home widget missing auth bindings"
           assert "<HomeScreen token={token} ledgerId={ledgerId}" in app, "Root must pass auth props"
           assert "Sannar496AppCrashGuard" in app, "Retain render error protection"
