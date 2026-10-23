@@ -5,7 +5,7 @@ on:
   push:
     branches: [ build/sannar-v496-public ]
     paths:
-      - '.github/workflows/build-sannar-v496-public.yml'
+      - '.github/workflows/build-sannar-v495-public.yml'
 
 permissions:
   contents: write
