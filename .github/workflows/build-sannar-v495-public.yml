@@ -121,7 +121,7 @@ jobs:
           base = Path('android/build.gradle')
           gradle = base.read_text()
           import re
-          gradle = re.sub(r'ndkVersion\\s*=\\s*["\\\'][^"\\\']+["\\\']', 'ndkVersion = "28.2.13676358"', gradle)
+          gradle = re.sub(r"ndkVersion\s*=\s*['\"][^'\"]+['\"]", 'ndkVersion = "28.2.13676358"', gradle)
           base.write_text(gradle)
 
           p = Path('android/app/build.gradle')
