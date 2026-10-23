@@ -292,3 +292,4 @@ jobs:
 # fix repeated home props; restart public CI
 
 # Final v4.9.5 includes overdue and due-soon navigation across all instruments
+# Rebuild after dashboard overview props and placement fixes
