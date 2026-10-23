@@ -286,3 +286,5 @@ jobs:
 # v495 patch-check pass 2: pick up the latest private source branch
 
 # Build retry 2 after editor import marker correction
+
+# Rebuild after v4.9.5 dashboard integration fix
