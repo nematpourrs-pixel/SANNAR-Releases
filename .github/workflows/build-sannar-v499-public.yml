@@ -344,15 +344,8 @@ jobs:
             adb shell am start -n ir.picamo.kharjino/.MainActivity
             sleep 12
             adb shell pidof ir.picamo.kharjino
-            # Other emulator system processes can crash independently of our app.
-            # Only mark failure when the crash buffer identifies our package.
-            CRASHLOG="$(adb logcat -d -b crash)"
-            if printf '%s\n' "$CRASHLOG" | grep -Eq 'Process: ir\\.picamo\\.kharjino|>>> ir\\.picamo\\.kharjino <<<'; then
-              echo "::error::SANNAR app-specific crash detected"
-              printf '%s\n' "$CRASHLOG" | tail -80
-              exit 1
-            fi
-            echo "PASS: SANNAR process alive; no package-specific native/Java crash"
+            # Check only this app; unrelated emulator service crashes are ignored.
+            ! adb logcat -d -b crash | grep -E 'Process: ir\.picamo\.kharjino|>>> ir\.picamo\.kharjino <<<'
 
       - name: Verify signed APK starts on Android emulator
         if: ${{ steps.sign.outputs.signed == 'true' }}
@@ -369,15 +362,8 @@ jobs:
             adb shell am start -n ir.picamo.kharjino/.MainActivity
             sleep 15
             adb shell pidof ir.picamo.kharjino
-            # Other emulator system processes can crash independently of our app.
-            # Only mark failure when the crash buffer identifies our package.
-            CRASHLOG="$(adb logcat -d -b crash)"
-            if printf '%s\n' "$CRASHLOG" | grep -Eq 'Process: ir\\.picamo\\.kharjino|>>> ir\\.picamo\\.kharjino <<<'; then
-              echo "::error::SANNAR app-specific crash detected"
-              printf '%s\n' "$CRASHLOG" | tail -80
-              exit 1
-            fi
-            echo "PASS: SANNAR process alive; no package-specific native/Java crash"
+            # Check only this app; unrelated emulator service crashes are ignored.
+            ! adb logcat -d -b crash | grep -E 'Process: ir\.picamo\.kharjino|>>> ir\.picamo\.kharjino <<<'
 
       - name: Publish signed CafeBazaar release
         if: ${{ steps.sign.outputs.signed == 'true' }}
