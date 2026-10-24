@@ -377,3 +377,5 @@ jobs:
 # Rebuild with balance-card dashboard integration and corrected HomeScreen props
 
 # Build with original HomeScreen parameter list (avoid duplicate identifiers)
+
+# Rebuild v4.9.8 with restored v4.8.1 dashboard action layout markers.
