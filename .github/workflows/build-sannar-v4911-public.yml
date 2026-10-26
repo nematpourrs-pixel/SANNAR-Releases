@@ -444,3 +444,5 @@ jobs:
 # Retry with cache-hydration conditional visibility tests.
 
 # Include uncertainty handling for non-idempotent write transport failures.
+
+# Rebuild after generated version string count patch.
