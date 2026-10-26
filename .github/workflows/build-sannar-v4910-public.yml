@@ -422,3 +422,5 @@ jobs:
 # Build with original HomeScreen parameter list (avoid duplicate identifiers)
 
 # Rebuild v4.9.10 with restored v4.8.1 dashboard action layout markers.
+
+# Retry with cache-hydration conditional visibility tests.
