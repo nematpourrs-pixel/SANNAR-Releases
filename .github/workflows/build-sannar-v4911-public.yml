@@ -446,3 +446,5 @@ jobs:
 # Include uncertainty handling for non-idempotent write transport failures.
 
 # Rebuild after generated version string count patch.
+
+# Retry with SMS classifier format diagnostics.
