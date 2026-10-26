@@ -360,6 +360,17 @@ jobs:
           echo "signed=true" >> "$GITHUB_OUTPUT"
           rm -f "$RUNNER_TEMP/sannar-production.jks" "$RUNNER_TEMP/aligned.apk"
 
+      - name: Save unsigned artifacts for QA (short retention; NOT a publishable release)
+        if: ${{ steps.sign.outputs.signed != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: SANNAR-4.9.11-UNSIGNED-REVIEW-ONLY
+          path: |
+            SANNAR_v4.9.11_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.apk
+            SANNAR_v4.9.11_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.aab
+          retention-days: 1
+
+
       - name: Make locally signed QA-only APK for emulator (never distributed)
         shell: bash
         run: |
@@ -382,7 +393,7 @@ jobs:
             adb logcat -c
             adb shell am start -n ir.picamo.kharjino/.MainActivity
             sleep 12
-            adb shell pidof ir.picamo.kharjino
+            adb shell pidof ir.picamo.kharjino || { echo 'SANNAR app process missing after activity start'; adb logcat -d -b crash | tail -110; adb logcat -d | grep -E 'AndroidRuntime|ReactNativeJS|ReactNative|FATAL EXCEPTION|Fatal signal|Process: ir\.picamo\.kharjino|ir\.picamo\.kharjino' | tail -140; exit 1; }
             # Check only this app; unrelated emulator service crashes are ignored.
             ! adb logcat -d -b crash | grep -E 'Process: ir\.picamo\.kharjino|>>> ir\.picamo\.kharjino <<<'
 
@@ -400,7 +411,7 @@ jobs:
             adb logcat -c
             adb shell am start -n ir.picamo.kharjino/.MainActivity
             sleep 15
-            adb shell pidof ir.picamo.kharjino
+            adb shell pidof ir.picamo.kharjino || { echo 'SANNAR app process missing after activity start'; adb logcat -d -b crash | tail -110; adb logcat -d | grep -E 'AndroidRuntime|ReactNativeJS|ReactNative|FATAL EXCEPTION|Fatal signal|Process: ir\.picamo\.kharjino|ir\.picamo\.kharjino' | tail -140; exit 1; }
             # Check only this app; unrelated emulator service crashes are ignored.
             ! adb logcat -d -b crash | grep -E 'Process: ir\.picamo\.kharjino|>>> ir\.picamo\.kharjino <<<'
 
@@ -413,15 +424,6 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "SANNAR 4.9.11 signed CafeBazaar candidate" --notes "Signature, identity, 16 KiB alignment and permissions audited. FINAL Play Protect/device/CafeBazaar approval not yet certified." --prerelease
           gh release upload "$TAG" SANNAR_v4.9.11_CAFEBAZAAR_SIGNED.apk SANNAR_v4.9.11_CAFEBAZAAR_SIGNED.aab --clobber
 
-      - name: Save unsigned artifacts for QA (short retention; NOT a publishable release)
-        if: ${{ steps.sign.outputs.signed != 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: SANNAR-4.9.11-UNSIGNED-REVIEW-ONLY
-          path: |
-            SANNAR_v4.9.11_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.apk
-            SANNAR_v4.9.11_CAFEBAZAAR_SMS_REVIEW_UX_UNSIGNED.aab
-          retention-days: 1
 
 
 # v501 patch-check pass 2: pick up the latest private source branch
