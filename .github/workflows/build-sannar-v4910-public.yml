@@ -424,3 +424,5 @@ jobs:
 # Rebuild v4.9.10 with restored v4.8.1 dashboard action layout markers.
 
 # Retry with cache-hydration conditional visibility tests.
+
+# Include uncertainty handling for non-idempotent write transport failures.
